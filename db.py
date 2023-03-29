@@ -25,6 +25,17 @@ class Database:
             ''')
             return res
 
+    def create_table_bookmarks(self):
+        with self.connection:
+            res = self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS bookmarks
+            (id integer PRIMARY KEY AUTOINCREMENT,
+            chat_id BIGINT,
+            key INT,
+            message text,
+            )
+            ''')
+            return res
+
     def post_result(self, *args):
         l = (args)
         keys="(chat_id, name, email, mob_tel, result, result_e, result_s, result_t, result_j, result_sum)"
