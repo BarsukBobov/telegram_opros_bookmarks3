@@ -29,8 +29,10 @@ class Fsm(StatesGroup):
     email = State()
     mob_tel = State()
     user_naber = State()
+    add_key_start = State()
     add_key = State()
-
+    add_get = State()
+    add_rm = State()
 
 async def cancel(text, id, state):
     if text == "/cancel":
@@ -364,9 +366,12 @@ async def user_naber(callback: types.CallbackQuery, state: FSMContext):
 
 
 ####################################КЛЮЧИ########################################
-@dp.message_handler(regexp='/add +([^;"\'\n]+)')
+@dp.message_handler(commands=['add'])
 async def add_key(message: types.Message, state: FSMContext, regexp):
-    key = regexp.group(1)
+
+
+@dp.message_handler(state=Fsm.add_key)
+async def add_key(message: types.Message, state: FSMContext, regexp):
     if db.isMessageExists(key):
         await bot.send_message(message.from_user.id, "Ключ уже занят. Попробуйте другой")
         return
