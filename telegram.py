@@ -1,19 +1,21 @@
 import asyncio
 import re
 
+from aiogram.types import ContentType
 from loguru import logger
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.dispatcher.filters import IDFilter
+from aiogram.dispatcher.filters import IDFilter, RegexpCommandsFilter, Regexp
 import markups as btn
 from db import Database
 import config
 
 db = Database("1.db")
 
-# db.drop_table()
+# Если надо удалить таблицу
+# db.drop_table('bookmarks')
 db.create_table()
 db.create_table_bookmarks()
 TOKEN = config.TOKEN
@@ -21,11 +23,13 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 pattern = r"^[-\w\.]+@([-\w]+\.)+[-\w]{2,4}$"
 
+
 class Fsm(StatesGroup):
     name = State()
     email = State()
     mob_tel = State()
     user_naber = State()
+    add_key = State()
 
 
 async def cancel(text, id, state):
@@ -212,7 +216,7 @@ async def result(data, id):
         user_p = 'P'
 
     user_nnnn = user_i + user_n + user_f + user_p
-    sum=user_ie+user_sn+user_tf+user_jp
+    sum = user_ie + user_sn + user_tf + user_jp
 
     if (user_nnnn == 'ESTJ'):
         user_full = 'Тип Администратор: ответственный, надежный для него важны долг, иерархия, порядок практичный, открытый, все у него идет по плану без глупостей и лишних выдумок бесхитростный, исполнительный, цельная натура.  ESTJ.'
@@ -247,27 +251,30 @@ async def result(data, id):
     if (user_nnnn == 'INFJ'):
         user_full = 'Тип Гуманист или Предсказатель: радость друзей - радость и для него проницательность и прозорливость успешное самообразование ранимость, не любят споров и конфликтов богатое воображение, поэтичность, любовь к метафорам это психолог, врачеватель, писатель стремится к гармонии человеческих взаимоотношений.'
 
-    text=f"Буквенный код оценки: {user_nnnn}\nВашей оценкой является балл: {sum}/70\n" \
-         f"Баллы расширенные: {user_ie} {user_sn} {user_tf} {user_jp} "
+    text = f"Буквенный код оценки: {user_nnnn}\nВашей оценкой является балл: {sum}/70\n" \
+           f"Баллы расширенные: {user_ie} {user_sn} {user_tf} {user_jp} "
     await bot.send_message(id, text)
     await bot.send_message(id, user_full)
     await bot.send_message(id, 'Спасибо! Тестирование закончилось.')
     db.post_result(id, data['name'], data['email'], data['mob_tel'], user_nnnn, user_ie, user_sn, user_tf, user_jp, sum)
 
 
-
 ####################################СТАРТ########################################
 @dp.message_handler(commands=['start'])
+async def admin(message: types.Message, state: FSMContext):
+    await bot.send_message(message.chat.id, btn.start, parse_mode='html')
+
+
+####################################АВТОРИЗАЦИЯ########################################
+@dp.message_handler(commands=['test'])
 async def admin(message: types.Message, state: FSMContext):
     await bot.send_message(message.chat.id, btn.text1, parse_mode='html')
     await bot.send_message(message.chat.id, btn.name)
     await Fsm.name.set()
 
 
-####################################АВТОРИЗАЦИЯ########################################
-
 @dp.message_handler(state=Fsm.name)
-async def bot_message(message: types.Message, state: FSMContext):
+async def name(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
         return
     await state.update_data(name=message.text)
@@ -276,7 +283,7 @@ async def bot_message(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(state=Fsm.email)
-async def bot_message(message: types.Message, state: FSMContext):
+async def email(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
         return
     if not re.findall(pattern, message.text):
@@ -287,8 +294,9 @@ async def bot_message(message: types.Message, state: FSMContext):
     await Fsm.next()
     await state.update_data(state=1)
 
+
 @dp.message_handler(state=Fsm.mob_tel)
-async def bot_message(message: types.Message, state: FSMContext):
+async def mob_tel(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
         return
     try:
@@ -305,23 +313,22 @@ async def bot_message(message: types.Message, state: FSMContext):
     return
 
 
-
 ####################################КНОПКИ ОПРОСА########################################
 @dp.message_handler(state=Fsm.user_naber)
-async def bot_message(message: types.Message, state: FSMContext):
+async def message_user_naber(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
         return
 
 
 @dp.callback_query_handler(state=Fsm.user_naber)
-async def callbacks(callback: types.CallbackQuery, state: FSMContext):
+async def user_naber(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback_query_id=callback.id)
     await bot.delete_message(callback.from_user.id, callback.message.message_id)
     data = await state.get_data(state)
     state_user = data["state"]
     if callback.data == "⏭":
         state_user += 1
-        if len(data)-state_user==2:
+        if len(data) - state_user == 2:
             # txt='Вы ответили не на все вопросы! Для коректного теста необходимо ответить на все'
             # await bot.send_message(callback.from_user.id, txt)
             state_user -= 1
@@ -351,18 +358,69 @@ async def callbacks(callback: types.CallbackQuery, state: FSMContext):
     except:
         pass
     await bot.send_message(callback.from_user.id, txt, reply_markup=btn.choice, parse_mode='html')
-    
+
     data = await state.get_data(state)
     logger.info(data)
 
 
+####################################КЛЮЧИ########################################
+@dp.message_handler(regexp='/add +([^;"\'\n]+)')
+async def add_key(message: types.Message, state: FSMContext, regexp):
+    key = regexp.group(1)
+    if db.isMessageExists(key):
+        await bot.send_message(message.from_user.id, "Ключ уже занят. Попробуйте другой")
+        return
+    await bot.send_message(message.from_user.id, btn.add_key(key), parse_mode='html')
+    await state.update_data(key=key)
+    await Fsm.add_key.set()
 
-@dp.message_handler(regexp='/add )')
-async def bot_message(message: types.Message,state: FSMContext):
+
+@dp.message_handler(state=Fsm.add_key, content_types=ContentType.ANY)
+async def add_key2(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
         return
-    txt="hello"
-    await bot.send_message(message.from_user.id, txt)
+    data = await state.get_data()
+    if not db.add_key(message.from_user.id, data["key"], message.message_id):
+        await bot.send_message(message.from_user.id, btn.add_key_error)
+        return
+    await bot.send_message(message.from_user.id, btn.add_key_successful)
+    await state.finish()
+
+
+@dp.message_handler(regexp='/get +([^;"\'\n]+)')
+async def get_key(message: types.Message, regexp):
+    key = regexp.group(1)
+    res = db.get_key(message.from_user.id, key)
+    if not res:
+        await bot.send_message(message.from_user.id, btn.get_key_error)
+        return
+    try:
+        await bot.forward_message(message.chat.id, message.from_user.id, res)
+    except:
+        logger.error("Message to forward not found")
+        await bot.send_message(message.from_user.id, btn.get_key_error2)
+
+
+@dp.message_handler(commands=['list'])
+async def list_key(message: types.Message):
+    res = db.list_key(message.from_user.id)
+    if not res:
+        await bot.send_message(message.from_user.id, btn.list_key_error)
+        return
+    keys = ''
+    for rows in res:
+        keys += '`' + rows[0] + '`' + '\n'
+    await bot.send_message(message.from_user.id, keys, parse_mode='markdown')
+
+
+@dp.message_handler(regexp='/remove +([^;"\'\n]+)')
+async def remove_key(message: types.Message, regexp):
+    key = regexp.group(1)
+    res = db.remove_key(message.from_user.id, key)
+    if not res:
+        await bot.send_message(message.from_user.id, btn.remove_key_error)
+        return
+    await bot.send_message(message.from_user.id, btn.remove_key(key), parse_mode='html')
 
 
 if __name__ == "__main__":

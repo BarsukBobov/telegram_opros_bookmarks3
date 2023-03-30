@@ -29,33 +29,83 @@ class Database:
         with self.connection:
             res = self.cursor.execute(f'''CREATE TABLE IF NOT EXISTS bookmarks
             (id integer PRIMARY KEY AUTOINCREMENT,
-            chat_id BIGINT,
-            key INT,
-            message text,
+            from_id BIGINT,
+            key TEXT NOT NULL UNIQUE,
+            message_id BIGINT NOT NULL
             )
             ''')
             return res
 
     def post_result(self, *args):
         l = (args)
-        keys="(chat_id, name, email, mob_tel, result, result_e, result_s, result_t, result_j, result_sum)"
+        keys = "(chat_id, name, email, mob_tel, result, result_e, result_s, result_t, result_j, result_sum)"
         print(l)
         try:
             with self.connection:
                 self.cursor.execute(f"INSERT INTO users {keys} VALUES {l}")
         except:
-            new_l=(args[1:])
-            string=''
+            new_l = (args[1:])
+            string = ''
             res = keys[1:-1].split(", ")
-            new_keys=(res[1:])
+            new_keys = (res[1:])
             for elem in new_keys:
-                string+=f'{elem}=?, '
+                string += f'{elem}=?, '
             print(string[:-2])
             with self.connection:
                 self.cursor.execute(f"UPDATE users SET {string[:-2]} WHERE chat_id={l[0]}", new_l)
 
-    #Optional
-    def drop_table(self):
+    ####################################КЛЮЧИ########################################
+    def isMessageExists(self, key):
         with self.connection:
-            res = self.cursor.execute(f'''DROP TABLE users''')
+            res = self.cursor.execute("SELECT COUNT(*) as cnt FROM bookmarks WHERE `key` = ?", (key,)).fetchone()[0]
+        return res
+
+    def add_key(self, *args):
+        l = (args)
+        keys = "(from_id, key, message_id)"
+        with self.connection:
+            try:
+                res = self.cursor.execute(f"INSERT INTO bookmarks {keys} VALUES {l}")
+                return res
+            except Exception as ex:
+                logger.error(ex)
+                return
+
+    def get_key(self, from_id, key):
+        with self.connection:
+            try:
+                res = self.cursor.execute(f"SELECT message_id FROM bookmarks WHERE `key` = ? AND from_id = ?", (key, from_id)).fetchone()[0]
+                return res
+            except Exception as ex:
+                logger.error(ex)
+                return
+
+    def list_key(self, from_id):
+        with self.connection:
+            try:
+                res = self.cursor.execute("SELECT `key` FROM bookmarks WHERE `from_id` = ?", (from_id,)).fetchall()
+                return res
+            except Exception as ex:
+                logger.error(ex)
+                return
+
+    def remove_key(self, from_id, key):
+        with self.connection:
+            try:
+                res=self.get_key(from_id, key)
+                logger.info(res)
+                if not res:
+                    return
+                res = self.cursor.execute(f"DELETE FROM bookmarks WHERE `key` = ? AND from_id = ?",
+                                          (key, from_id))
+
+                return res
+            except Exception as ex:
+                logger.error(ex)
+                return
+
+    # Optional
+    def drop_table(self, name):
+        with self.connection:
+            res = self.cursor.execute(f'''DROP TABLE {name}''')
             return res
