@@ -15,6 +15,7 @@ db = Database("1.db")
 
 # db.drop_table()
 db.create_table()
+db.create_table_bookmarks()
 TOKEN = config.TOKEN
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
@@ -305,7 +306,7 @@ async def bot_message(message: types.Message, state: FSMContext):
 
 
 
-####################################КНОПКИ########################################
+####################################КНОПКИ ОПРОСА########################################
 @dp.message_handler(state=Fsm.user_naber)
 async def bot_message(message: types.Message, state: FSMContext):
     if await cancel(message.text, message.from_user.id, state) is False:
@@ -353,6 +354,15 @@ async def callbacks(callback: types.CallbackQuery, state: FSMContext):
     
     data = await state.get_data(state)
     logger.info(data)
+
+
+
+@dp.message_handler(regexp='/add )')
+async def bot_message(message: types.Message,state: FSMContext):
+    if await cancel(message.text, message.from_user.id, state) is False:
+        return
+    txt="hello"
+    await bot.send_message(message.from_user.id, txt)
 
 
 if __name__ == "__main__":
