@@ -31,14 +31,8 @@ class Fsm(StatesGroup):
     user_naber = State()
     add_key_start = State()
     add_key = State()
-    add_get = State()
-    add_rm = State()
-
-async def cancel(text, id, state):
-    if text == "/cancel":
-        await bot.send_message(id, "Выход.\nЕсли хотите начать заново - /start")
-        await state.finish()
-        return False
+    get_key = State()
+    rm_key = State()
 
 
 async def result(data, id):
@@ -261,6 +255,13 @@ async def result(data, id):
     db.post_result(id, data['name'], data['email'], data['mob_tel'], user_nnnn, user_ie, user_sn, user_tf, user_jp, sum)
 
 
+####################################ОТМЕНА########################################
+@dp.message_handler(commands=['cancel'], state='*')
+async def cancel(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, "Выход.\n")
+    await state.finish()
+    return False
+
 ####################################СТАРТ########################################
 @dp.message_handler(commands=['start'])
 async def admin(message: types.Message, state: FSMContext):
@@ -277,8 +278,7 @@ async def admin(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Fsm.name)
 async def name(message: types.Message, state: FSMContext):
-    if await cancel(message.text, message.from_user.id, state) is False:
-        return
+ 
     await state.update_data(name=message.text)
     await bot.send_message(message.from_user.id, btn.email)
     await Fsm.email.set()
@@ -286,8 +286,7 @@ async def name(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Fsm.email)
 async def email(message: types.Message, state: FSMContext):
-    if await cancel(message.text, message.from_user.id, state) is False:
-        return
+ 
     if not re.findall(pattern, message.text):
         await bot.send_message(message.from_user.id, "Неверный емэйл, попробуйте снова")
         return
@@ -299,8 +298,7 @@ async def email(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=Fsm.mob_tel)
 async def mob_tel(message: types.Message, state: FSMContext):
-    if await cancel(message.text, message.from_user.id, state) is False:
-        return
+ 
     try:
         if len(message.text) == 11 and int(message.text):
             await state.update_data(mob_tel=message.text)
@@ -316,12 +314,6 @@ async def mob_tel(message: types.Message, state: FSMContext):
 
 
 ####################################КНОПКИ ОПРОСА########################################
-@dp.message_handler(state=Fsm.user_naber)
-async def message_user_naber(message: types.Message, state: FSMContext):
-    if await cancel(message.text, message.from_user.id, state) is False:
-        return
-
-
 @dp.callback_query_handler(state=Fsm.user_naber)
 async def user_naber(callback: types.CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback_query_id=callback.id)
@@ -346,7 +338,6 @@ async def user_naber(callback: types.CallbackQuery, state: FSMContext):
             data = await state.get_data(state)
             await result(data, callback.from_user.id)
             await state.finish()
-
             return
 
     await state.update_data(state=state_user)
@@ -367,13 +358,15 @@ async def user_naber(callback: types.CallbackQuery, state: FSMContext):
 
 ####################################КЛЮЧИ########################################
 @dp.message_handler(commands=['add'])
-async def add_key(message: types.Message, state: FSMContext, regexp):
+async def add_key(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, "Укажите название закладки, которую хотите добавить!")
+    await Fsm.add_key_start.set()
 
-
-@dp.message_handler(state=Fsm.add_key)
-async def add_key(message: types.Message, state: FSMContext, regexp):
+@dp.message_handler(state=Fsm.add_key_start)
+async def add_key(message: types.Message, state: FSMContext):
+    key=message.text
     if db.isMessageExists(key):
-        await bot.send_message(message.from_user.id, "Ключ уже занят. Попробуйте другой")
+        await bot.send_message(message.from_user.id, "Такое название уже занято. Попробуйте другой!")
         return
     await bot.send_message(message.from_user.id, btn.add_key(key), parse_mode='html')
     await state.update_data(key=key)
@@ -382,8 +375,6 @@ async def add_key(message: types.Message, state: FSMContext, regexp):
 
 @dp.message_handler(state=Fsm.add_key, content_types=ContentType.ANY)
 async def add_key2(message: types.Message, state: FSMContext):
-    if await cancel(message.text, message.from_user.id, state) is False:
-        return
     data = await state.get_data()
     if not db.add_key(message.from_user.id, data["key"], message.message_id):
         await bot.send_message(message.from_user.id, btn.add_key_error)
@@ -391,22 +382,7 @@ async def add_key2(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, btn.add_key_successful)
     await state.finish()
 
-
-@dp.message_handler(regexp='/get +([^;"\'\n]+)')
-async def get_key(message: types.Message, regexp):
-    key = regexp.group(1)
-    res = db.get_key(message.from_user.id, key)
-    if not res:
-        await bot.send_message(message.from_user.id, btn.get_key_error)
-        return
-    try:
-        await bot.forward_message(message.chat.id, message.from_user.id, res)
-    except:
-        logger.error("Message to forward not found")
-        await bot.send_message(message.from_user.id, btn.get_key_error2)
-
-
-@dp.message_handler(commands=['list'])
+@dp.message_handler(commands=['list'], state="*")
 async def list_key(message: types.Message):
     res = db.list_key(message.from_user.id)
     if not res:
@@ -417,16 +393,40 @@ async def list_key(message: types.Message):
         keys += '`' + rows[0] + '`' + '\n'
     await bot.send_message(message.from_user.id, keys, parse_mode='markdown')
 
+    
+@dp.message_handler(commands=['get'])
+async def get_key(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, "Укажите название закладки, которую хотите получить!")
+    await Fsm.get_key.set()
 
-@dp.message_handler(regexp='/remove +([^;"\'\n]+)')
-async def remove_key(message: types.Message, regexp):
-    key = regexp.group(1)
+@dp.message_handler(state=Fsm.get_key)
+async def get_key2(message: types.Message, state: FSMContext):
+    key = message.text
+    res = db.get_key(message.from_user.id, key)
+    if not res:
+        await bot.send_message(message.from_user.id, btn.get_key_error)
+        return
+    try:
+        await bot.forward_message(message.chat.id, message.from_user.id, res)
+    except:
+        logger.error("Message to forward not found")
+        await bot.send_message(message.from_user.id, btn.get_key_error2)
+    await state.finish()
+
+@dp.message_handler(commands=['rm'])
+async def get_key(message: types.Message):
+    await bot.send_message(message.from_user.id, "Укажите название закладки, которую хотите удалить!")
+    await Fsm.rm_key.set()
+
+@dp.message_handler(state=Fsm.rm_key)
+async def get_key2(message: types.Message, state: FSMContext):
+    key = message.text
     res = db.remove_key(message.from_user.id, key)
     if not res:
         await bot.send_message(message.from_user.id, btn.remove_key_error)
         return
     await bot.send_message(message.from_user.id, btn.remove_key(key), parse_mode='html')
-
+    await state.finish()
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
