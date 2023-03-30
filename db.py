@@ -60,6 +60,7 @@ class Database:
             res = self.cursor.execute("SELECT COUNT(*) as cnt FROM bookmarks WHERE `key` = ?", (key,)).fetchone()[0]
         return res
 
+
     def add_key(self, *args):
         l = (args)
         keys = "(from_id, key, message_id)"
@@ -98,7 +99,6 @@ class Database:
                     return
                 res = self.cursor.execute(f"DELETE FROM bookmarks WHERE `key` = ? AND from_id = ?",
                                           (key, from_id))
-
                 return res
             except Exception as ex:
                 logger.error(ex)
