@@ -368,7 +368,7 @@ async def add_key(message: types.Message, state: FSMContext):
     if db.isMessageExists(key):
         await bot.send_message(message.from_user.id, "Такое название уже занято. Попробуйте другой!")
         return
-    await bot.send_message(message.from_user.id, btn.add_key(key), parse_mode='html')
+    await bot.send_message(message.from_user.id, btn.add_key(key), parse_mode='markdown')
     await state.update_data(key=key)
     await Fsm.add_key.set()
 
@@ -407,9 +407,9 @@ async def get_key2(message: types.Message, state: FSMContext):
         await bot.send_message(message.from_user.id, btn.get_key_error)
         return
     try:
-        await bot.forward_message(message.chat.id, message.from_user.id, res)
-    except:
-        logger.error("Message to forward not found")
+        await bot.copy_message(message.chat.id, message.from_user.id, res)
+    except Exception as ex :
+        logger.error(ex)
         await bot.send_message(message.from_user.id, btn.get_key_error2)
     await state.finish()
 
@@ -425,7 +425,7 @@ async def get_key2(message: types.Message, state: FSMContext):
     if not res:
         await bot.send_message(message.from_user.id, btn.remove_key_error)
         return
-    await bot.send_message(message.from_user.id, btn.remove_key(key), parse_mode='html')
+    await bot.send_message(message.from_user.id, btn.remove_key(key), parse_mode='markdown')
     await state.finish()
 
 if __name__ == "__main__":

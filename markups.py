@@ -134,13 +134,13 @@ choice = inline(tupl)
 def add_key(key):
     string=f'''
 Теперь напишите или пришлите мне сообщение, которое нужно сохранить для закладки:
-<b>{key}</b>
+`{key}`
 '''
     return string
 
 def remove_key(key):
     string=f'''
-Закладка <b>{key}</b> удалена!
+Закладка `{key}` удалена!
 '''
     return string
 
