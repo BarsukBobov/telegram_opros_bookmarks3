@@ -357,6 +357,17 @@ async def user_naber(callback: types.CallbackQuery, state: FSMContext):
 
 
 ####################################КЛЮЧИ########################################
+@dp.message_handler(commands=['list'], state="*")
+async def list_key(message: types.Message):
+    res = db.list_key(message.from_user.id)
+    if not res:
+        await bot.send_message(message.from_user.id, btn.list_key_error)
+        return
+    keys = ''
+    for rows in res:
+        keys += '`' + rows[0] + '`' + '\n'
+    await bot.send_message(message.from_user.id, keys, parse_mode='markdown')
+
 @dp.message_handler(commands=['add'])
 async def add_key(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, "Укажите название закладки, которую хотите добавить!")
@@ -382,18 +393,7 @@ async def add_key2(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, btn.add_key_successful)
     await state.finish()
 
-@dp.message_handler(commands=['list'], state="*")
-async def list_key(message: types.Message):
-    res = db.list_key(message.from_user.id)
-    if not res:
-        await bot.send_message(message.from_user.id, btn.list_key_error)
-        return
-    keys = ''
-    for rows in res:
-        keys += '`' + rows[0] + '`' + '\n'
-    await bot.send_message(message.from_user.id, keys, parse_mode='markdown')
 
-    
 @dp.message_handler(commands=['get'])
 async def get_key(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, "Укажите название закладки, которую хотите получить!")

@@ -60,49 +60,44 @@ class Database:
             res = self.cursor.execute("SELECT COUNT(*) as cnt FROM bookmarks WHERE `key` = ?", (key,)).fetchone()[0]
         return res
 
+    def log(func):
+        def wrapper(self, *args, **kwargs):
+            try:
+                with self.connection:
+                    res = func(self, *args, **kwargs)
+                return res
+            except Exception as ex:
+                logger.error(f"{func} {ex}")
+                return
+        return wrapper
 
+    @log
     def add_key(self, *args):
         l = (args)
         keys = "(from_id, key, message_id)"
-        with self.connection:
-            try:
-                res = self.cursor.execute(f"INSERT INTO bookmarks {keys} VALUES {l}")
-                return res
-            except Exception as ex:
-                logger.error(ex)
-                return
+        res = self.cursor.execute(f"INSERT INTO bookmarks {keys} VALUES {l}")
+        return res
 
+    @log
     def get_key(self, from_id, key):
-        with self.connection:
-            try:
-                res = self.cursor.execute(f"SELECT message_id FROM bookmarks WHERE `key` = ? AND from_id = ?", (key, from_id)).fetchone()[0]
-                return res
-            except Exception as ex:
-                logger.error(ex)
-                return
+        res = self.cursor.execute(f"SELECT message_id FROM bookmarks WHERE `key` = ? AND from_id = ?", (key, from_id)).fetchone()[0]
+        return res
 
+    @log
     def list_key(self, from_id):
-        with self.connection:
-            try:
-                res = self.cursor.execute("SELECT `key` FROM bookmarks WHERE `from_id` = ?", (from_id,)).fetchall()
-                return res
-            except Exception as ex:
-                logger.error(ex)
-                return
+        res = self.cursor.execute("SELECT `key` FROM bookmarks WHERE `from_id` = ?", (from_id,)).fetchall()
+        return res
 
+    @log
     def remove_key(self, from_id, key):
-        with self.connection:
-            try:
-                res=self.get_key(from_id, key)
-                logger.info(res)
-                if not res:
-                    return
-                res = self.cursor.execute(f"DELETE FROM bookmarks WHERE `key` = ? AND from_id = ?",
-                                          (key, from_id))
-                return res
-            except Exception as ex:
-                logger.error(ex)
-                return
+        res=self.get_key(from_id, key)
+        logger.info(res)
+        if not res:
+            return
+        res = self.cursor.execute(f"DELETE FROM bookmarks WHERE `key` = ? AND from_id = ?",
+                                  (key, from_id))
+        return res
+
 
     # Optional
     def drop_table(self, name):
